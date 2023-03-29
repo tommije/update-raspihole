@@ -1,0 +1,69 @@
+---
+- name: Update Raspberry Pi packages and Docker images
+  hosts: pihole
+  gather_facts: yes
+  become: yes
+
+  tasks:
+    - name: Include variables
+      include_vars: variables.yml
+
+    - name: Update Raspberry Pi packages
+      apt:
+        upgrade: yes
+        update_cache: yes
+        cache_valid_time: 86400
+      tags:
+        - update_raspberry_pi
+
+    - name: Check if reboot is required
+      stat:
+        path: /var/run/reboot-required
+      register: reboot_required
+
+    - name: Reboot system if necessary
+      reboot:
+        msg: "Rebooting due to package updates"
+        connect_timeout: 10
+        reboot_timeout: 600
+      when: reboot_required.stat.exists
+      tags:
+        - reboot
+
+    - name: Install Docker and Docker Compose
+      apt:
+        name:
+          - docker.io
+          - docker-compose
+        state: present
+
+    - name: Ensure Docker service is started and enabled
+      systemd:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Update Pi-Hole Docker image
+      docker_image:
+        name: pihole/pihole:latest
+        source: pull
+      tags:
+        - update_pihole
+
+    - name: Stop, remove, and restart Docker containers
+      block:
+        - name: Stop and remove existing Pi-Hole and Homer Docker containers (if any)
+          docker_compose:
+            project_src: "{{ item }}"
+            state: absent
+          loop:
+            - "{{ pihole_path }}"
+
+        - name: Deploy and start the latest Pi-Hole and Homer Docker containers
+          docker_compose:
+            project_src: "{{ item }}"
+            state: present
+          loop:
+            - "{{ pihole_path }}"
+      tags:
+        - restart_containers
