@@ -52,14 +52,14 @@
 
     - name: Stop, remove, and restart Docker containers
       block:
-        - name: Stop and remove existing Pi-Hole and Homer Docker containers (if any)
+        - name: Stop and remove existing Pi-Hole Docker containers (if any)
           docker_compose:
             project_src: "{{ item }}"
             state: absent
           loop:
             - "{{ pihole_path }}"
 
-        - name: Deploy and start the latest Pi-Hole and Homer Docker containers
+        - name: Deploy and start the latest Pi-Hole Docker containers
           docker_compose:
             project_src: "{{ item }}"
             state: present
